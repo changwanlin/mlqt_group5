@@ -1,3 +1,4 @@
-data/raw/*.parquet
 data/processed/
 __pycache__/
+.venv/
+.DS_Store
