@@ -24,3 +24,11 @@ def nw_mean_ci(x, lags=None):                                # 定義：Newey–
         s += 2 * w * (e[l:] @ e[:-l]) / n                    # 加權共變異
     se = np.sqrt(max(s, 0) / n)                              # 平均值的標準誤
     return m, m - 1.96 * se, m + 1.96 * se, se               # 回傳：平均、下界、上界、標準誤
+
+VER = CFG.get("features", {}).get("active", "v1")            # 目前使用的特徵組版本
+VOUT = ROOT/"outputs" if VER == "v1" else ROOT/"outputs"/VER # 版本輸出根目錄（v1 結果保留在原位，v2 另放）
+VTAB, VFIG = VOUT/"tables", VOUT/"figures"                   # 版本化的表格與圖檔資料夾
+for _d in (VTAB, VFIG): _d.mkdir(parents=True, exist_ok=True)  # 不存在就建立
+def vproc(name):                                             # 定義：版本化的中間資料檔名
+    p = pathlib.Path(name)                                   # 拆檔名
+    return PROC/name if VER == "v1" else PROC/f"{p.stem}_{VER}{p.suffix}"  # v1 用原檔名，其他版本加後綴

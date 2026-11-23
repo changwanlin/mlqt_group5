@@ -6,6 +6,15 @@ STK, GOLD, BM = CFG["universe"]["stocks"], CFG["universe"]["gold_etf"], CFG["uni
 C = CFG["costs"]; X = CFG["execution"]; PF = CFG["portfolio"]  # 成本、執行、配置設定
 LOT = X["lot_size"]                                          # 一張 = 1000 股
 
+def tick_slip(o, base):                                      # 定義：v3 滑價＝max(固定比例, 半個升降單位 ÷ 成交價)（範本 01 B.3）
+    T = CFG["v3"]["costs"]                                   # 升降單位表
+    def tick(px, table):                                     # 定義：依價格查升降單位
+        conds = [px < float(up) for up, _ in table]               # 「股價 < 上限」的條件（由小到大）
+        return np.select(conds, [float(t) for _, t in table], default=float(table[-1][1]))  # 第一個成立的級距
+    etf = o.index.isin([GOLD, BM])                           # ETF 用另一張表
+    t = pd.Series(np.where(etf, tick(o.values, T["tick_table_etf"]), tick(o.values, T["tick_table_stock"])), index=o.index)  # 每檔升降單位
+    return np.maximum(base, 0.5 * t / o).fillna(base)        # 每邊滑價（無開盤價者用固定比例，反正不會成交）
+
 class Market:                                                # 定義：把面板資料整理成「日期 × 代號」矩陣，方便查詢
     def __init__(self):                                      # 初始化
         p = pd.read_parquet(PROC/"panel.parquet")            # 讀面板
@@ -25,7 +34,7 @@ class Market:                                                # 定義：把面�
         self.ca = (self.adj / self.adj.shift(1)).fillna(1.0) # 公司行動：持股數每日調整倍數
 
 def run(mk, decisions, target_fn, start_cash=None, cost_mult=1.0, slip_mult=1.0, adv_cap=None, cap=None,
-        overlay=False, end=None, gross=False):               # 定義：執行一次回測
+        overlay=False, end=None, gross=False, slip_model="fixed"):  # 定義：執行一次回測（slip_model="tick" 為 v3；預設 fixed 與 v1 相同）
     cash = float(start_cash or X["capital_twd"])             # 起始現金
     adv_cap = X["adv_cap"] if adv_cap is None else adv_cap   # 成交量限制（None 表示用設定值）
     comm = 0 if gross else C["commission_per_side"] * cost_mult  # 手續費率
@@ -52,6 +61,7 @@ def run(mk, decisions, target_fn, start_cash=None, cost_mult=1.0, slip_mult=1.0,
             clipped = delta.abs() > lim                      # 超過容量限制
             delta[clipped] = np.sign(delta[clipped]) * np.floor(lim[clipped] / LOT) * LOT  # 縮到上限（整張）
             unfilled = float(((tgt - sh - delta).abs() * o).fillna(0)[ok].sum())  # 未成交金額
+            if slip_model == "tick" and not gross: slip = tick_slip(o, C["slippage_per_side"]) * cost_mult * slip_mult  # v3：每檔、每天依成交價計算滑價（成本倍數同樣放大）
             tax = pd.Series(C["sell_tax_stock"], index=o.index); tax[[GOLD, BM]] = C["sell_tax_etf"]  # 證交稅率
             if gross: tax[:] = 0                             # 毛報酬：不計稅
             sells = delta.clip(upper=0).abs()                # 賣出股數

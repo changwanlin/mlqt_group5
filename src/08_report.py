@@ -207,8 +207,8 @@ pd.DataFrame(st).round(4).to_csv(TAB/"stress_tests.csv", index=False)  # 存檔
 
 # ---------- 10. 統計推論：Sharpe 區間、Deflated Sharpe、最短紀錄長度 ----------
 rl = pd.read_csv(ROOT/"run_log.csv")                         # 研究帳本
-pre = rl[rl.trial_family != "HOLDOUT"]                       # 封存前的試驗
-N = pre.drop_duplicates(["family", "config", "fset", "lookback"]).shape[0]  # 試驗次數（每個設定算一次，不重複算 fold）
+pre = rl[rl.logged_at < rl[rl.trial_family == "HOLDOUT"].logged_at.min()]  # 封存測試執行之前記錄的試驗（之後的 v2 試驗不算進 v1 的 DSR）
+N = pre.drop_duplicates(["trial_family", "family", "config", "fset", "lookback"]).shape[0]  # 試驗次數（每個設定算一次，不重複算 fold；封存期紀錄不算）
 srs = PV.Sharpe / np.sqrt(252)                               # 驗證期各策略與變體的日 Sharpe
 def dsr(r, N, var_sr):                                       # 定義：Deflated Sharpe Ratio（Bailey & López de Prado）
     n = len(r); sr = r.mean() / r.std(); g3, g4 = r.skew(), r.kurt() + 3  # 日 Sharpe、偏態、峰態

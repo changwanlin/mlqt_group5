@@ -15,7 +15,7 @@ ridge,ridge_alpha10,all15,0.128,0.009,0.1688,0.4334,0.198,False
 ridge,ridge_alpha100,all15,0.128,0.0089,0.1688,0.4325,0.1994,False
 ridge,ridge_alpha1000,all15,0.1284,0.0087,0.1689,0.4315,0.1988,True
 ridge,ridge_alpha10000,all15,0.131,0.0076,0.1701,0.4242,0.1921,False
-train_mean,train_mean,all15,0.1622,0.0144,0.1983,,-0.0,True
+train_mean,train_mean,all15,0.1622,0.0144,0.1983,,0.0,True
 lgbm,lgbm_num_leaves7_min_child_samples50_n_estimators100,hv3,0.1218,0.0124,0.1688,0.4119,0.1883,False
 lgbm,lgbm_num_leaves7_min_child_samples100_n_estimators100,hv3,0.1218,0.0126,0.1689,0.4092,0.1913,True
 lgbm,lgbm_num_leaves15_min_child_samples50_n_estimators100,hv3,0.1221,0.0131,0.1691,0.4017,0.1861,False
