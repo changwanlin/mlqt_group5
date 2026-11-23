@@ -20,6 +20,8 @@ python src/05_model1_v7.py             # Model 1：117 個候選、三年 QLIKE 
 python src/07_model2_v7.py             # Model 2：窗口 → 目標波動率 → α → A–D 回測、DSR、敏感度（約 1 分鐘）
 python src/10_pit_check.py             # 特徵 PIT 驗證：刪掉截止日之後的原始資料重跑，比較截止日前的特徵（約 10 分鐘）
 python src/11_figures_v7.py            # 九張圖
+python src/14_export_predictions.py    # 每週每檔的預測波動率整理成 CSV（outputs/v7/tables/volatility_predictions_weekly.csv）
+python src/15_build_dashboard.py       # 互動式儀表板 → outputs/v7/dashboard/dashboard.html（雙擊用瀏覽器開啟；版面在 src/dashboard_template.html）
 python src/12_correlation_checks.py     # 相關性檢查：特徵相關（V7 2.4）、每週相關矩陣數值檢查（V7 5.3）、權重穩定性（約 20 秒）
 ```
 
