@@ -89,6 +89,15 @@ select { font: inherit; font-size: 14px; padding: 6px 10px; border-radius: 8px; 
 .checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 12px; }
 .check { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
 .check p { margin: 4px 0 0; font-size: 13px; }
+.intro { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 18px; }
+.intro summary { cursor: pointer; color: var(--ink); font-weight: 700; font-size: 15px; }
+.intro-body { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.intro-body .lead { margin: 0; color: var(--ink); font-size: 15px; max-width: 75ch; }
+.intro-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 12px; }
+.intro-card { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.intro-card p { margin: 6px 0 0; font-size: 13px; }
+.strat-table td { white-space: normal; min-width: 90px; }
+.strat-name { font-size: 12px; color: var(--muted); }
 footer { font-size: 12px; color: var(--muted); }
 @media (prefers-reduced-motion: no-preference) { .panel, .kpi { transition: border-color .2s; } }
 </style>
@@ -105,12 +114,39 @@ footer { font-size: 12px; color: var(--muted); }
       <button type="button" id="btn-post" data-p="post" aria-pressed="true">2025–2026 事後評估</button>
     </div>
   </header>
+  <details class="intro" id="intro">
+    <summary>研究流程簡介（V7 說明書重點，點開閱讀）</summary>
+    <div class="intro-body">
+      <p class="lead">先預測每檔股票下週「會晃多大」（Model 1），再依晃動程度分配資金；整體太晃時，把一部分資金放回現金（Model 2）。目標是在控制風險下，提高扣成本後的 Sharpe Ratio。</p>
+      <div class="intro-grid">
+        <div class="intro-card"><h3>① 交易時點</h3><p>每週最後一個交易日收盤後決策，下一個交易日開盤成交，持有約 5 個交易日。報酬、標籤與相關性都用「開盤到開盤」，和資金實際承受風險的時間一致。</p></div>
+        <div class="intro-card"><h3>② 資料與可交易名單</h3><p>15 檔台灣半導體相關股票，研究期間 2016-11 至 2026-10（2015-06 起暖機）。過去 250 日平均成交 ≥ 3.5 億元、有效交易日 ≥ 200 天才可交易，每週約 8–13 檔。</p></div>
+        <div class="intro-card"><h3>③ Model 1：波動率預測</h3><p>標籤是未來 5 日開盤到開盤的年化波動。用 18 項特徵，從 117 個候選模型（4 個基準＋Ridge、Lasso、ElasticNet、LightGBM）中以三個驗證年的平均 QLIKE 選模，並用 2021 校準年決定 90% 預測區間的寬度。</p></div>
+        <div class="intro-card"><h3>④ Model 2：資金配置</h3><p>1. 風險預算 b ∝ σ̂^(−α)　2. Σ̂ = D R D（R 用 Ledoit–Wolf 常數相關收縮）　3. 風險平價求內部權重（單檔 ≤ 30%）　4. 股票曝險 a = min(1, 目標波動 ÷ 預測組合波動)，其餘放現金。</p></div>
+        <div class="intro-card"><h3>⑤ 三個設定的選擇順序</h3><p>相關性窗口（20／60 日，比 QLIKE）→ 目標波動率（策略 A 在 2017–2020 的中位數）→ α（策略 D 的三年平均 Sharpe）。規則都在看結果之前寫定。</p></div>
+        <div class="intro-card"><h3>⑥ 回測假設</h3><p>資金 3 億元；手續費 0.1425%（雙邊）、證交稅 0.3%（賣出）、滑價 5 bps；現金與無風險利率用臺灣銀行一年期定存機動利率。</p></div>
+      </div>
+      <h3>四組策略</h3>
+      <div class="tbl-wrap"><table class="strat-table"><tr><th>策略</th><th>個股波動率來源</th><th>風險預算</th><th>用來回答</th></tr>
+        <tr><td><b>A</b>：HV20＋等風險</td><td>過去 20 日歷史波動（HV20）</td><td>α = 0，每檔承擔相同風險</td><td>基準</td></tr>
+        <tr><td><b>B</b>：Model 1＋等風險</td><td>Model 1（Lasso）預測</td><td>α = 0，每檔承擔相同風險</td><td>A 比 B：機器學習預測有沒有幫助</td></tr>
+        <tr><td><b>C</b>：HV20＋α 風險預算</td><td>HV20</td><td>依選定的 α 偏向低波動股票</td><td>A 比 C：動態風險預算有沒有幫助</td></tr>
+        <tr><td><b>D</b>：Model 1＋α 風險預算</td><td>Model 1（Lasso）預測</td><td>依選定的 α 偏向低波動股票</td><td>四組一起看：兩者是否互補</td></tr></table></div>
+      <p class="note">本次依規則選到 α = 0，所以 C 與 A、D 與 B 的結果完全相同。</p>
+      <h3>資料切分</h3>
+      <div class="tbl-wrap"><table class="strat-table"><tr><th>用途</th><th>期間</th><th>說明</th></tr>
+        <tr><td>訓練＋驗證</td><td>2016-11 至 2024</td><td>逐年擴張：訓練至 2021／2022／2023 年底，分別驗證 2022／2023／2024，用來選模與選參</td></tr>
+        <tr><td>校準年</td><td>2021</td><td>訓練至 2020、預測 2021，用來決定 90% 預測區間寬度，不用於選模</td></tr>
+        <tr><td>事後評估</td><td>2025-01 至 2026-10</td><td>早期版本用過一次，只作事後評估，不當獨立證據</td></tr>
+        <tr><td>前瞻測試</td><td>規則凍結後每週</td><td>紙上交易（src/17_paper_v7.py），真正獨立的證據</td></tr></table></div>
+    </div>
+  </details>
 
   <section class="kpis" id="kpis" aria-label="關鍵指標"></section>
 
   <div class="section-title"><span class="tag">回測</span><h2>淨值、回撤與股票曝險</h2></div>
   <div class="panel">
-    <div class="legend"><span><i class="sw" style="background:var(--b)"></i>B：Model 1</span><span><i class="sw" style="background:var(--a)"></i>A：HV20</span><span><i class="sw dash"></i>0050（參考）</span></div>
+    <div class="legend"><span><i class="sw" style="background:var(--b)"></i>B：Model 1＋等風險</span><span><i class="sw" style="background:var(--a)"></i>A：HV20＋等風險</span><span><i class="sw dash"></i>0050（參考）</span><span class="strat-name">α = 0，所以 C＝A、D＝B</span></div>
     <div class="chart" id="ch-nav"></div>
     <p class="note" id="nav-note"></p>
   </div>
@@ -124,6 +160,10 @@ footer { font-size: 12px; color: var(--muted); }
   </div>
 
   <div class="section-title"><span class="tag">MODEL 1</span><h2>波動率預測</h2></div>
+  <div class="panel" id="feature-screen" hidden>
+    <h3>18 項特徵的篩選摘要</h3>
+    <p id="feature-screen-summary"></p>
+  </div>
   <div class="panel">
     <div class="ctrl"><label for="sel-sid">股票</label><select id="sel-sid"></select>
       <div class="legend"><span><i class="sw" style="background:var(--b)"></i>Lasso 預測</span><span><i class="sw" style="background:var(--band);height:10px"></i>90% 預測區間</span><span><i class="sw" style="background:var(--a)"></i>HV20</span><span><i class="dotb" style="background:var(--ink)"></i>實際（未來 5 日）</span><span><i class="sw gap"></i>不可交易（空白）</span></div></div>
@@ -138,6 +178,11 @@ footer { font-size: 12px; color: var(--muted); }
 
   <div class="section-title"><span class="tag">MODEL 2</span><h2>依 V7 規則選出的設定</h2></div>
   <div class="panel"><div class="rules" id="rules"></div></div>
+  <div class="panel" id="post-window-panel" hidden>
+    <h3>2025–2026 事後評估的 20／60 日收縮窗口（策略 B）</h3>
+    <table><thead><tr><th>窗口</th><th>扣成本 Sharpe</th><th>年化報酬</th><th>年化波動</th><th>最大回撤</th></tr></thead>
+      <tbody id="post-window-rows"></tbody></table>
+  </div>
   <div class="grid2">
     <div class="panel"><h3>① 相關性窗口：策略 B 組合波動的 QLIKE（2022–2024）</h3><div class="bars" id="bars-win"></div><p class="note">低者勝；差距 1% 內選 60 日。20 日低 3.2%，選 20 日。</p></div>
     <div class="panel"><h3>③ α：策略 D 三年平均扣成本 Sharpe</h3><div class="bars" id="bars-alpha"></div><p class="note">四個值都是負的，越接近 0 越好；最高者勝，差距 0.05 內選較小的 α。α = 0 時 C 等於 A、D 等於 B。</p></div>
@@ -145,7 +190,7 @@ footer { font-size: 12px; color: var(--muted); }
 
   <div class="section-title"><span class="tag">驗證</span><h2>PIT 與相關性檢查</h2></div>
   <div class="grid2">
-    <div class="panel"><h3>特徵 PIT：刪掉截止日後的資料重算</h3><div class="tbl-wrap"><table id="tb-pit"></table></div><p class="note">GARCH 的差異來自估計在參數邊界附近數值不穩，輸入報酬只差小數第 14 位，不是偷看未來。</p></div>
+    <div class="panel"><h3>特徵 PIT：刪掉截止日後的資料重算</h3><div class="tbl-wrap"><table id="tb-pit"></table></div><p class="note">比較完整資料與截斷資料重算後的特徵，檢查截止日前的數值是否一致。</p></div>
     <div class="panel"><h3>相關性檢查</h3><div class="checks" id="checks"></div></div>
   </div>
   <footer>資料來源：outputs/v7/tables（05_model1_v7、07_model2_v7、10_pit_check、12_correlation_checks、14_export_predictions）。由 src/15_build_dashboard.py 產生。</footer>
@@ -158,6 +203,7 @@ try { const s = localStorage.getItem("v7dash-period"); if (s === "val" || s === 
 const $ = id => document.getElementById(id);                  // 小工具：用 id 找元素
 const pct = (v, d = 1) => v == null ? "—" : (v < 0 ? "−" : "") + Math.abs(v * 100).toFixed(d) + "%";  // 小數 → 百分比文字（用正式負號）
 const num = (v, d = 2) => v == null ? "—" : (v < 0 ? "−" : "") + Math.abs(v).toFixed(d);  // 數字文字（用正式負號）
+const nm = sid => (D.names && D.names[sid]) || "";              // 股票代號 → 中文名稱
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();  // 讀 CSS 顏色變數（跟著深淺色切換）
 
 function niceTicks(lo, hi, n) {                               // 產生好看的刻度
@@ -283,14 +329,14 @@ function renderPeriod() {
     + tile("平均股票曝險", k.B.expo, k.A.expo, v => pct(v, 0), "none") + tile("每年交易成本", k.B.cost, k.A.cost, v => pct(v), "low");
   const B = css("--b"), A = css("--a"), R = css("--ref");    // 目前主題的顏色
   lineChart($("ch-nav"), { label: "淨值曲線", x: p.nav.x, height: 300, refY: 1, yFmt: v => v.toFixed(2),
-    series: [{ name: "0050", values: p.nav.ref, color: R, dash: true, width: 1.5 }, { name: "A：HV20", values: p.nav.A, color: A }, { name: "B：Model 1", values: p.nav.B, color: B, width: 2.4 }] });
+    series: [{ name: "0050", values: p.nav.ref, color: R, dash: true, width: 1.5 }, { name: "A：HV20＋等風險", values: p.nav.A, color: A }, { name: "B：Model 1＋等風險", values: p.nav.B, color: B, width: 2.4 }] });
   const fin = s => s[s.length - 1];                           // 期末值
   $("nav-note").textContent = `期末淨值（期初 = 1）：B ${fin(p.nav.B).toFixed(2)}、A ${fin(p.nav.A).toFixed(2)}、0050 ${fin(p.nav.ref).toFixed(2)}。0050 只作參考，不是投資標的。`;
   const dd = s => { let mx = -Infinity; return s.map(v => (mx = Math.max(mx, v), v / mx - 1)); };  // 回撤 = 淨值 ÷ 前高 − 1
   lineChart($("ch-dd"), { label: "回撤", x: p.nav.x, height: 200, yMax: 0, yFmt: (v, t) => pct(v, t ? 1 : 0),
-    series: [{ name: "A：HV20", values: dd(p.nav.A), color: A, width: 1.6 }, { name: "B：Model 1", values: dd(p.nav.B), color: B, width: 1.8 }] });
+    series: [{ name: "A：HV20＋等風險", values: dd(p.nav.A), color: A, width: 1.6 }, { name: "B：Model 1＋等風險", values: dd(p.nav.B), color: B, width: 1.8 }] });
   lineChart($("ch-expo"), { label: "每週股票曝險", x: p.expo.x, height: 200, yMin: 0, yMax: 1.02, yFmt: (v, t) => pct(v, 0),
-    series: [{ name: "A：HV20", values: p.expo.A, color: A, step: true, width: 1.4 }, { name: "B：Model 1", values: p.expo.B, color: B, step: true, width: 1.6 }] });
+    series: [{ name: "A：HV20＋等風險", values: p.expo.A, color: A, step: true, width: 1.4 }, { name: "B：Model 1＋等風險", values: p.expo.B, color: B, step: true, width: 1.6 }] });
   const rows = D.sens.filter(r => r.p === P);                 // 敏感度
   dotPlot($("ch-sens"), rows);
   const wins = rows.filter(r => r.B > r.A).length;
@@ -315,7 +361,7 @@ function renderPred() {
     if (d.nv[i] != null && d.nv[i] < 200) r.push(`有效交易日 ${d.nv[i]} 天，少於 200 天`);
     return r.length ? r.join("；") : "尚未上市滿一年或資料不足";
   };
-  lineChart($("ch-pred"), { label: `${sid} 預測與實際波動`, x: d.x, height: 280, yMin: 0, yFmt: (v, t) => pct(v, 0), shadeFrom: "2025-01-01", shadeLabel: "事後評估",
+  lineChart($("ch-pred"), { label: `${sid} ${nm(sid)} 預測與實際波動`, x: d.x, height: 280, yMin: 0, yFmt: (v, t) => pct(v, 0), shadeFrom: "2025-01-01", shadeLabel: "事後評估",
     gaps: { flags: d.tr.map(t => !t), why },
     band: { lo: tr(d.lo), hi: tr(d.hi) }, dots: { values: tr(d.y) },
     series: [{ name: "HV20", values: tr(d.hv), color: css("--a"), width: 1.3 }, { name: "Lasso", values: tr(d.ml), color: css("--b"), width: 2 }] });
@@ -336,6 +382,17 @@ function renderStatic() {
     + D.m1.map((r, i) => `<tr class="${i === 0 ? "main" : ""}"><td>${r.model}</td>${ys.map(c => `<td class="${r[c] === mins[c] ? "best" : ""}">${r[c].toFixed(3)}</td>`).join("")}</tr>`).join("");
   bars($("bars-cov"), D.coverage.map(c => ({ label: c.p, v: c.cov, sel: false })), v => pct(v));
   bars($("bars-win"), D.window.map(w => ({ label: w.label, v: w.q, sel: w.sel })), v => v.toFixed(3));
+  if (D.postWindows) {
+    $("post-window-panel").hidden = false;
+    $("post-window-rows").innerHTML = D.postWindows.map(([days, selected, sharpe, ret, vol, drawdown]) =>
+      `<tr><td>${days} 日${selected ? "（選定）" : ""}</td><td>${sharpe.toFixed(4)}</td><td>${pct(ret)}</td><td>${pct(vol)}</td><td>${pct(drawdown)}</td></tr>`).join("");
+  }
+  if (D.featureScreen) {
+    const screen = D.featureScreen;
+    $("feature-screen").hidden = false;
+    const matching = screen.configured_only.length + screen.reproduced_only.length === 0;
+    $("feature-screen-summary").textContent = `${screen.input_count} 項候選去重後為 ${screen.deduplicated_count} 項，其中 ${screen.bh_family_size} 項個股特徵做 BH 校正。第一層 ${screen.tier_1_count} 項（含 HV20 錨點），第二層 ${screen.tier_2_count} 項。重現名單${matching ? "與 V7 完全一致" : "與 V7 有差異"}。`;
+  }
   bars($("bars-alpha"), D.alpha.map(a => ({ label: "α = " + a.a, v: a.s, sel: a.sel })), v => num(v), true);
   $("rules").innerHTML = [["相關性窗口", D.rules.window + " 日", "V7 5.5：策略 B 的組合波動 QLIKE"], ["目標波動率", pct(D.rules.target), `V7 7.5：策略 A 2017–2020 中位數（敏感度 ${pct(D.rules.p25)}／${pct(D.rules.p75)}）`],
     ["風險預算 α", "α = " + D.rules.alpha, "V7 4.4：策略 D 三年平均 Sharpe"], ["單檔上限", "30%", "風險平價求解；超過改 SLSQP"]].map(r => `<div class="rule"><p>${r[0]}</p><div class="big">${r[1]}</div><p>${r[2]}</p></div>`).join("");
@@ -346,7 +403,7 @@ function renderStatic() {
     + `<div class="check"><h3>相關矩陣數值 <span class="pill ok">通過</span></h3><p>${c.weeks} 週全部對稱、對角線為 1、特徵值非負。收縮把 20 日最大條件數從 ${Math.round(c.condRaw)} 降到 ${Math.round(c.condShrink)}。</p></div>`
     + `<div class="check"><h3>權重穩定性</h3><p>每週內部權重變動：2022–24 A ${pct(c.stab["2022–2024|A"])}、B ${pct(c.stab["2022–2024|B"])}；2025–26 A ${pct(c.stab["2025–2026|A"])}、B ${pct(c.stab["2025–2026|B"])}。</p></div>`;
   const sel = $("sel-sid"), ids = Object.keys(D.preds).filter(s => D.preds[s].tr.some(Boolean)).sort();  // 有進入過可交易名單的股票
-  sel.innerHTML = ids.map(s => `<option value="${s}" ${s === "2330" ? "selected" : ""}>${s}</option>`).join("");
+  sel.innerHTML = ids.map(s => `<option value="${s}" ${s === "2330" ? "selected" : ""}>${s} ${nm(s)}</option>`).join("");
   sel.addEventListener("change", renderPred);
 }
 

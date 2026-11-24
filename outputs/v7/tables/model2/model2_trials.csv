@@ -1,0 +1,7 @@
+﻿config,strategy,window,alpha,qlike,sharpe,daily_sharpe,selected,annual_turnover,max_drawdown,mean_yearly_sharpe,trial_family,fset,eval_window,shrinkage,counts_for_dsr
+B_window_20,B,20,0.0,0.33326878137741794,-0.5347111096395848,-0.03368363379451746,True,5.6407787518506085,-0.32044163036878937,,model2_v7,v7,2022–2024,constant_correlation,True
+B_window_60,B,60,0.0,0.3442777042169345,-0.5137848487824963,-0.032365403268366955,False,5.111565867171181,-0.32127505299109227,,model2_v7,v7,2022–2024,constant_correlation,True
+D_alpha_0,D,20,0.0,,-0.5347111096395848,-0.03368363379451746,True,,,-0.4083636829804848,model2_v7,v7,2022–2024,constant_correlation,True
+D_alpha_0.5,D,20,0.5,,-0.5568120951380569,-0.035075865017336554,False,,,-0.428552747338011,model2_v7,v7,2022–2024,constant_correlation,True
+D_alpha_1,D,20,1.0,,-0.5777151152619977,-0.036392631514910984,False,,,-0.44783210794392886,model2_v7,v7,2022–2024,constant_correlation,True
+D_alpha_2,D,20,2.0,,-0.6102461817122011,-0.038441896079457534,False,,,-0.4781458088021167,model2_v7,v7,2022–2024,constant_correlation,True

@@ -14,6 +14,7 @@
 import os, shutil, subprocess, sys, json, numpy as np, pandas as pd  # 載入：環境變數、複製檔案、執行子程式、系統、JSON、數值、表格
 from concurrent.futures import ThreadPoolExecutor            # 載入：同時跑幾個截止日
 from common import ROOT, CFG, VTAB                           # 載入：專案路徑與設定
+from garch_open_returns import opening_returns, read_actions
 
 CUTOFFS = sys.argv[1:] or ["2019-06-28", "2022-09-30", "2024-12-27", "2026-03-27"]  # 截止日（都是交易日的星期五；可在指令後面指定）
 STEPS = ["02_build_dataset.py", "03_features_labels.py", "03b_features_v2.py", "features_30.py", "universe.py", "03d_garch_oo.py"]  # 依序重跑的步驟
@@ -32,9 +33,11 @@ def make_copy(cut):                                          # 定義：建立�
     c = pd.Timestamp(cut)
     L = pd.read_csv(ROOT / "data" / "raw" / "listing_dates.csv", dtype={"sid": str}, parse_dates=["listing_date"])
     L[L.listing_date <= c].to_csv(raw / "listing_dates.csv", index=False)  # 截止日時還沒上市的股票，當時不可能知道 → 也刪掉
+    not_listed = L.loc[L.listing_date > c, "sid"]
     for f in ("price", "div", "capred"):                     # 行情與公司行動：刪掉截止日之後的列
         x = pd.read_parquet(ROOT / "data" / "raw" / f"{f}.parquet")
-        x[pd.to_datetime(x.date) <= c].to_parquet(raw / f"{f}.parquet", index=False)
+        # Removing the listing date alone would admit pre-listing quotes.
+        x[(pd.to_datetime(x.date) <= c) & ~x.stock_id.isin(not_listed)].to_parquet(raw / f"{f}.parquet", index=False)
     m = pd.read_csv(ROOT / "data" / "raw" / "manual_splits.csv", dtype={"sid": str}, parse_dates=["date"])
     m[m.date <= c].to_csv(raw / "manual_splits.csv", index=False)  # 手動分割事件也一樣截斷
     return d
@@ -83,13 +86,15 @@ def compare(full, trunc, cut, cols):                         # 定義：逐欄�
 def garch_check(root, cut):                                  # 定義：GARCH 的輸入與參數比較
     c = pd.Timestamp(cut); stk = CFG["universe"]["stocks"]
     def rets(r):                                             # 開盤到開盤報酬（%），與 03d 相同的算法
-        p = pd.read_parquet(r / "data" / "processed" / "panel.parquet"); p = p[p.sid.isin(stk) & p.valid & (p.date <= c)].dropna(subset=["aopen"]).sort_values(["sid", "date"])
-        p["r"] = 100 * np.log(p.aopen / p.groupby("sid").aopen.shift(1)); return p.set_index(["date", "sid"]).r
+        p = pd.read_parquet(r / "data" / "processed" / "panel.parquet")
+        returns = opening_returns(p[p.sid.isin(stk)], read_actions(r))
+        return returns[returns.date <= c].set_index(["date", "sid"]).r
     a, b = rets(ROOT), rets(root); j = a.index.intersection(b.index)
     fa = pd.read_csv(ROOT / "outputs" / "v7" / "tables" / "garch_oo_fits.csv", parse_dates=["fit_end"], dtype={"sid": str})
     fb = pd.read_csv(root / "outputs" / "v7" / "tables" / "garch_oo_fits.csv", parse_dates=["fit_end"], dtype={"sid": str})
     m = fa[fa.fit_end <= c].merge(fb, on=["sid", "fit_end"], suffixes=("_f", "_t"))  # 同一檔、同一次估計
     out = {"截止日": cut, "報酬筆數": len(j), "報酬最大絕對差（%）": float((a[j] - b[j]).abs().max()),
+           "只在一邊出現的報酬筆數": len(a.index.symmetric_difference(b.index)),
            "估計次數": len(m), "狀態不同次數": int((m.status_f != m.status_t).sum())}
     for k in ("alpha", "beta", "omega"):                     # 參數的最大相對差
         out[f"{k} 最大相對差"] = float(((m[f"{k}_f"] - m[f"{k}_t"]).abs() / m[f"{k}_f"].abs()).max())

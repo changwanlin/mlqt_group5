@@ -12,3 +12,4 @@ statsmodels==0.15.0
 arch==9.0.0
 jupytext==1.19.6
 pyportfolioopt==1.6.0
+hmmlearn==0.3.3

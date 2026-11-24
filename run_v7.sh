@@ -21,6 +21,7 @@ run 03b_features_v2                                          # 第二批特徵
 run features_30                                              # 其餘特徵
 run universe                                                 # 每週可交易名單與決策日
 run 03d_garch_oo                                             # 第 18 項特徵：開盤到開盤 GARCH
+run 16_feature_selection_v7                                  # 重現 18 項特徵的篩選（只用 2016-11～2020）
 run 05_model1_v7                                             # Model 1：117 個候選、選模、預測區間（約 2.5 分鐘）
 run 07_model2_v7                                             # Model 2：選窗口、目標波動率、α，A–D 回測（約 1 分鐘）
 run 11_figures_v7                                            # 結果圖
@@ -28,5 +29,6 @@ run 12_correlation_checks                                    # 相關性檢查
 run 13_fixed_split_check                                     # 與小組固定切分版比對
 if [ "$SKIP_PIT" = 0 ]; then run 10_pit_check; fi            # PIT 驗證（約 3–5 分鐘）
 run 14_export_predictions                                    # 每週預測波動率整理成 CSV
-run 15_build_dashboard                                       # 互動式儀表板
-echo; echo "=== $(date +%H:%M:%S) 全部完成。打開 outputs/v7/dashboard/dashboard.html 看結果。"
+run 15_build_dashboard                                       # 單頁儀表板 dashboard.html
+run 19_build_research_dashboard                              # 四頁式研究儀表板 research_dashboard_preview.html
+echo; echo "=== $(date +%H:%M:%S) 全部完成。打開 outputs/v7/dashboard/research_dashboard_preview.html 看結果。"

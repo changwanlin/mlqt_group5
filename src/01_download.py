@@ -1,12 +1,15 @@
 # 01_download.py — 從 FinMind 下載原始日成交資料、除權息結果與減資參考價
 import json, time, datetime as dt, pathlib, urllib.request, urllib.parse  # 載入：JSON、等待、時間、路徑、網路請求工具
+import argparse
 import yaml, pandas as pd                                                 # 載入：讀設定檔、表格處理
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]                        # 專案根目錄
 CFG = yaml.safe_load(open(ROOT / "setup.yaml", encoding="utf-8"))         # 讀入 setup.yaml
 RAW = ROOT / "data" / "raw"; RAW.mkdir(parents=True, exist_ok=True)       # 原始資料資料夾，不存在就建立
 API = "https://api.finmindtrade.com/api/v4/data"                          # FinMind API 網址
-START, END = CFG["data"]["start"], "2026-11-12"                           # 下載起訖日（終點含標籤所需的最後幾天）
+parser = argparse.ArgumentParser()
+parser.add_argument("--end", type=dt.date.fromisoformat, default=dt.date(2026, 11, 12))
+START, END = CFG["data"]["start"], parser.parse_args().end.isoformat()
 IDS = CFG["universe"]["stocks"] + [CFG["universe"]["gold_etf"], CFG["universe"]["passive_benchmark"]]  # 要下載的代號清單
 
 def get(dataset, sid, start=START):                                       # 定義：下載單一資料集、單一代號

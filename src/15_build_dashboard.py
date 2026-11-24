@@ -77,6 +77,16 @@ D["window"] = [{"label": f"{int(r.L)} 日" + ("" if r.shrink else "（不收縮�
 al = pd.read_csv(M2 / "alpha_selection.csv")                 # α 選擇
 D["alpha"] = [{"a": r4(r.alpha), "s": r4(r["三年平均 Sharpe"]), "sel": bool(r.alpha == fr["alpha"])} for _, r in al.iterrows()]
 D["rules"] = {"window": fr["window"], "target": r4(fr["sigma_target"]), "alpha": fr["alpha"], "p25": r4(fr["sens_targets"]["p25"]), "p75": r4(fr["sens_targets"]["p75"])}
+post_windows = M2 / "window_posthoc.csv"
+if post_windows.exists():
+    D["postWindows"] = [
+        [int(row["窗口"]), bool(row["選定"]), r4(row.Sharpe), r4(row["年化報酬"]),
+         r4(row["年化波動"]), r4(row["最大回撤"])]
+        for _, row in pd.read_csv(post_windows).iterrows()
+    ]
+screen_summary = VTAB / "feature_selection" / "v7" / "summary.json"
+if screen_summary.exists():
+    D["featureScreen"] = json.loads(screen_summary.read_text(encoding="utf-8"))
 
 # ---------- 5. 驗證：PIT、相關性 ----------
 ps = pd.read_csv(VTAB / "pit" / "pit_summary.csv")           # PIT 結果
@@ -96,6 +106,8 @@ D["corr"] = {"maxPair": f"{top.level_0}–{top.level_1}", "maxRho": r4(top.rho),
              "condRaw": r4(cm[(cm.L == 20) & (~cm.收縮)]["條件數最大"].iloc[0]),
              "stab": {f"{r.期間}|{r.策略}": r4(r["mean"]) for _, r in ws[(ws.L == 20) & ws.收縮].iterrows()}}
 D["asof"] = str(pr.決策日.max())                              # 資料截止日
+ld = pd.read_csv(ROOT / "data" / "raw" / "listing_dates.csv", dtype={"sid": str}, encoding="utf-8-sig")  # 股票中文名稱（01b_listing 下載）
+D["names"] = dict(zip(ld.sid, ld.name))                      # 代號 → 中文名稱，例如 2330 → 台積電
 
 # ---------- 6. 塞進樣板、寫檔 ----------
 body = (ROOT / "src" / "dashboard_template.html").read_text(encoding="utf-8")  # 讀樣板

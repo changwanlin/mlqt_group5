@@ -18,6 +18,21 @@ def corr_matrix(W, shrink=True):                             # 定義：一段�
     ev = np.linalg.eigvalsh(R).min()                         # V7 數值檢查：最小特徵值
     return R, lam, len(X), ev                                # 回傳相關矩陣、λ、實際使用天數、最小特徵值
 
+
+def window_correlation(returns, lookback, shrink=True):
+    """V7 window estimate and the documented fallback for sparse observations."""
+    R, lam, nobs, ev = corr_matrix(returns, shrink)
+    failed = nobs < 0.75 * lookback
+    if failed and returns.shape[1] > 1:
+        sample = returns.corr(min_periods=int(0.5 * lookback)).fillna(0).to_numpy()
+        np.fill_diagonal(sample, 1)
+        n = len(sample)
+        mean = (sample.sum() - n) / (n * (n - 1))
+        target = np.full_like(sample, mean)
+        np.fill_diagonal(target, 1)
+        R, lam = 0.5 * sample + 0.5 * target, 0.5
+    return R, lam, nobs, ev, failed
+
 def cap_redistribute(q, cap=CAP):                            # 定義：把超過上限的部分按比例分給其他股票（SLSQP 起點用）
     q = q.copy()
     for _ in range(100):

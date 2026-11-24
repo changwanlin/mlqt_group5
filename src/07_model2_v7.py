@@ -9,11 +9,13 @@
 #     d. 組合實現波動（5.5）若任一檔在 5 段中有缺值，該週不納入窗口比較
 #     e. 回測：股數可為小數；成交日停牌的股票無法交易、維持原持股；其餘全數成交（V7 8.4 未設參與率上限）
 #     f. 2025–2026 事後評估使用訓練至 2024 年底的 Model 1（V7 未規定重訓頻率）
-import itertools, json, numpy as np, pandas as pd           # 載入：組合、JSON、數值、表格
+import json, numpy as np, pandas as pd
 from scipy.stats import norm, skew, kurtosis                 # 載入：Deflated Sharpe 需要的分配函數
 from common import CFG, PROC, VTAB, VER                      # 載入：設定與路徑
-from models import load, split, make_model, FLOOR            # 載入：樣本與模型工具
-from model2_v7 import corr_matrix, allocate, CAP             # 載入：V7 Model 2
+from models import load, split, make_model, FLOOR, log_runs
+from model2_v7 import window_correlation, allocate
+from model2_execution import execute_plan
+from model2_historical_rate import deposit_rate
 assert VER == "v7"
 OUT = VTAB / "model2"; OUT.mkdir(exist_ok=True)              # 輸出資料夾
 STRAT = {"A": ("hv", "fixed0"), "B": ("ml", "fixed0"), "C": ("hv", "chosen"), "D": ("ml", "chosen")}  # 四組策略：波動來源、α
@@ -27,15 +29,6 @@ cal = pd.DatetimeIndex(sorted(panel[(panel.sid == "0050") & panel.valid].date.un
 O = panel[panel.valid].pivot(index="date", columns="sid", values="aopen").reindex(cal)  # 還原開盤（停牌為空）
 Cl = panel[panel.valid].pivot(index="date", columns="sid", values="aclose").reindex(cal)  # 還原收盤
 RO = np.log(O / O.shift(1))                                  # 開盤到開盤日報酬（相鄰交易日都有效才有值）
-nxt = pd.Series(cal[1:], index=cal[:-1])                     # 下一個交易日（成交日）
-
-def deposit_rate(d):                                         # 臺灣銀行一年期定存機動利率（年息；V7 8.4）
-    steps = [("1900-01-01", 0.00815), ("2022-03-21", 0.01065), ("2022-06-20", 0.01190), ("2022-09-26", 0.01315),
-             ("2022-12-21", 0.01440), ("2023-03-27", 0.01565), ("2024-03-25", 0.01690)]  # 2022-03-21、2022-12-21、2024-08-01 起 1.690% 經臺銀網站查證；其餘依央行每次 0.125 個百分點推定
-    r = steps[0][1]
-    for s, v in steps:
-        if pd.Timestamp(d) >= pd.Timestamp(s): r = v
-    return r
 
 # ---------- 1. Model 1 預測（主模型逐年重訓：訓練至前一年底，預測當年每個決策日） ----------
 SEL = pd.read_csv(VTAB / "selected_configs.csv", index_col=0).config["primary"]  # 05_model1_v7 選出的主模型
@@ -70,13 +63,7 @@ def window_corr(t, sids, L, shrink=True):                    # 定義：決策�
     return _CC[k]
 def _window_corr(t, sids, L, shrink):
     i = cal.get_loc(t); W = RO.iloc[max(0, i - L + 1): i + 1][sids]
-    R, lam, nobs, ev = corr_matrix(W, shrink)
-    fail = nobs < 0.75 * L
-    if fail:                                                 # 估計失敗：成對相關 → 常數相關收縮（λ 用 0.5，記錄）
-        S = W.corr(min_periods=int(0.5 * L)).fillna(0).values; np.fill_diagonal(S, 1)
-        rbar = (S.sum() - len(sids)) / (len(sids) * (len(sids) - 1)); T = np.full_like(S, rbar); np.fill_diagonal(T, 1)
-        R, lam = 0.5 * S + 0.5 * T, 0.5
-    return R, lam, nobs, ev, fail
+    return window_correlation(W, L, shrink)
 
 DECS = sorted(dec.date.unique())
 _PC = {}
@@ -141,41 +128,10 @@ TA.to_csv(OUT / "target_strategyA_2017_2020.csv", index=False)
 # ---------- 4. 回測引擎（V7 8.4） ----------
 ADV = panel.assign(amt=panel.amount.where(panel.valid)).sort_values(["sid", "date"]).groupby("sid").amt.transform(lambda x: x.rolling(20, min_periods=15).mean())  # 20 日平均成交金額（元）
 ADV = pd.Series(ADV.values, index=pd.MultiIndex.from_frame(panel.loc[ADV.index, ["date", "sid"]])).to_dict()
-def backtest(plan, start, end, slip=COST["slip"], comm=COST["comm"]):  # 定義：依每週目標權重回測（規則 e）
-    days = cal[(cal >= pd.Timestamp(start)) & (cal <= pd.Timestamp(end))]
-    targets = {nxt[p["date"]]: p for p in plan if p["date"] in nxt.index and nxt[p["date"]] in days}  # 成交日 → 配置
-    if not targets: return None
-    first = min(targets); days = days[days >= first]
-    cash, hold = CAPITAL, pd.Series(dtype=float)              # 現金、持股（還原股數）
-    last_close = Cl.ffill()                                   # 停牌日用最後收盤價評價
-    nav, expo, trades, wk, prev = [], [], [], [], None
-    for d in days:
-        if prev is not None:                                  # 現金計息（日曆天）
-            cash *= 1 + deposit_rate(d) * (d - prev).days / 365
-        if d in targets:                                      # 成交日：開盤調整
-            p = targets[d]; o = O.loc[d]; px_val = o.combine_first(last_close.loc[prev] if prev is not None else o)
-            V = cash + float((hold * px_val.reindex(hold.index)).sum())  # 開盤前總資產
-            tgt_w = pd.Series(p["w"], index=p["sids"])
-            names = sorted(set(hold.index) | set(tgt_w.index))
-            can = {s: not np.isnan(o.get(s, np.nan)) for s in names}  # 開盤有成交價才可交易
-            scale = 1.0                                       # 若全額投入，成本會讓現金變負 → 把股票目標等比例縮小
-            for _ in range(20):
-                new = {s: (tgt_w.get(s, 0.0) * V * scale / o[s]) if can[s] else hold.get(s, 0.0) for s in names}
-                dv = {s: (new[s] - hold.get(s, 0.0)) * o[s] for s in names if can[s]}
-                buys = sum(v for v in dv.values() if v > 0); sells = -sum(v for v in dv.values() if v < 0)
-                cost = (buys + sells) * (comm + slip) + sells * COST["tax"]   # 手續費＋滑價（雙邊）＋證交稅（賣方）
-                cash_after = cash + sells - buys - cost
-                if cash_after >= -1e-6: break
-                scale *= 1 + 1.01 * cash_after / max(tgt_w.sum() * V * scale, 1.0)  # 不足的金額從股票目標扣掉
-            hold = pd.Series(new); hold = hold[hold.abs() > 1e-12]; cash = cash_after
-            for s, v in dv.items():
-                if abs(v) > 1e-6: trades.append(dict(exec=d, sid=s, value=v, adv20=ADV.get((p["date"], s), np.nan)))  # 成交額 ÷ 決策日 20 日均額
-            wk.append(dict(date=p["date"], exec=d, n=len(p["sids"]), a=p["a"], sigma_p=p["sigma_p"], method=p["method"], exception=p["exception"],
-                           rb_dev=float(np.abs(p["rc"] - p["b"]).max()), lam=p["lam"], est_fail=p["est_fail"], cost=cost, turnover=buys + sells, V=V))
-        sv = float((hold * last_close.loc[d].reindex(hold.index)).sum())  # 收盤持股市值
-        nav.append((d, cash + sv)); expo.append(sv / (cash + sv)); prev = d
-    N = pd.DataFrame(nav, columns=["date", "nav"]).set_index("date"); N["expo"] = expo
-    return N, pd.DataFrame(trades), pd.DataFrame(wk)
+def backtest(plan, start, end, slip=COST["slip"], comm=COST["comm"]):
+    return execute_plan(plan, cal, O, Cl, ADV, start, end, capital=CAPITAL,
+                        deposit_rate=deposit_rate, slip=slip, comm=comm, tax=COST["tax"])
+
 
 def metrics(N, T, Wk):                                       # 定義：V7 8.3 的指標
     r = N.nav.pct_change().dropna(); d = N.index.to_series().diff().dt.days.reindex(r.index)
@@ -240,15 +196,37 @@ for per_name, per in (("2022–2024 驗證期", VAL), ("2025–2026 事後評估
 pd.DataFrame(ref).round(4).to_csv(OUT / "reference_0050.csv", index=False); print("0050：\n", pd.DataFrame(ref).round(4).to_string(index=False))
 
 # ---------- 9. Deflated Sharpe（V7 2.6：試驗次數 6＝B×2 窗口＋D×4 α；對最終策略 D 計算） ----------
-def dsr(ex, trial_srs, n_trials=6):                          # Bailey & López de Prado (2014)
+def dsr(ex, trial_srs):                                      # Bailey & López de Prado (2014)
+    n_trials = len(trial_srs)
     sr = ex.mean() / ex.std(); T_ = len(ex); g3 = skew(ex); g4 = kurtosis(ex, fisher=False)
     v = np.var(trial_srs, ddof=1); emc = 0.5772156649
     sr0 = np.sqrt(v) * ((1 - emc) * norm.ppf(1 - 1 / n_trials) + emc * norm.ppf(1 - 1 / (n_trials * np.e)))
     return float(norm.cdf((sr - sr0) * np.sqrt(T_ - 1) / np.sqrt(1 - g3 * sr + (g4 - 1) / 4 * sr ** 2))), float(sr0 * np.sqrt(252))
-trial = []                                                   # 6 個試驗的每日 Sharpe（未年化）
+trials, post_windows = [], []
 for L in (20, 60):
-    N, T, Wk = run("ml", 0.0, L=L); e = metrics(N, T, Wk)["_ex"]; trial.append(e.mean() / e.std())
-for e in ALT["_ex"]: trial.append(e.mean() / e.std())
+    N, T, Wk = run("ml", 0.0, L=L)
+    m = metrics(N, T, Wk)
+    e = m.pop("_ex")
+    trials.append(dict(config=f"B_window_{L}", strategy="B", window=L, alpha=0.0,
+                       qlike=wtab.loc[(L, True), "三年平均"], sharpe=m["Sharpe"],
+                       daily_sharpe=e.mean() / e.std(), selected=L == L_SEL,
+                       annual_turnover=m["年化換手率"], max_drawdown=m["最大回撤"]))
+    N, T, Wk = run("ml", 0.0, L=L, period=POST)
+    m = metrics(N, T, Wk)
+    m.pop("_ex")
+    post_windows.append({"窗口": L, "選定": L == L_SEL, "策略": "B", **m})
+pd.DataFrame(post_windows).round(4).to_csv(OUT / "window_posthoc.csv", index=False, encoding="utf-8-sig")
+for _, row in ALT.iterrows():
+    e = row["_ex"]
+    a = row.alpha
+    trials.append(dict(config=f"D_alpha_{a:g}", strategy="D", window=L_SEL, alpha=a,
+                       sharpe=row["整段 Sharpe"], mean_yearly_sharpe=row["三年平均 Sharpe"],
+                       daily_sharpe=e.mean() / e.std(), selected=a == ALPHA))
+ledger = pd.DataFrame(trials).assign(trial_family="model2_v7", fset=VER, eval_window="2022–2024",
+                                    shrinkage="constant_correlation", counts_for_dsr=True)
+ledger.to_csv(OUT / "model2_trials.csv", index=False, encoding="utf-8-sig")
+log_runs(ledger.rename(columns={"qlike": "QLIKE", "sharpe": "Sharpe"}))
+trial = ledger.daily_sharpe.to_numpy()
 DS = []
 for per_name in ("2022–2024 驗證期", "2025–2026 事後評估"):
     for s in ("B", "D"):

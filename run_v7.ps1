@@ -23,6 +23,7 @@ Run "03b_features_v2"                                        # 第二批特徵
 Run "features_30"                                            # 其餘特徵
 Run "universe"                                               # 每週可交易名單與決策日
 Run "03d_garch_oo"                                           # 第 18 項特徵：開盤到開盤 GARCH
+Run "16_feature_selection_v7"                                # 重現 18 項特徵的篩選（只用 2016-11～2020）
 Run "05_model1_v7"                                           # Model 1（約 2.5 分鐘）
 Run "07_model2_v7"                                           # Model 2 與 A–D 回測（約 1 分鐘）
 Run "11_figures_v7"                                          # 結果圖
@@ -30,6 +31,7 @@ Run "12_correlation_checks"                                  # 相關性檢查
 Run "13_fixed_split_check"                                   # 與小組固定切分版比對
 if (-not $SkipPit) { Run "10_pit_check" }                    # PIT 驗證（約 3–5 分鐘）
 Run "14_export_predictions"                                  # 每週預測波動率整理成 CSV
-Run "15_build_dashboard"                                     # 互動式儀表板
+Run "15_build_dashboard"                                     # 單頁儀表板 dashboard.html
+Run "19_build_research_dashboard"                            # 四頁式研究儀表板
 Write-Host ""
-Write-Host ("=== {0} 全部完成。打開 outputs\v7\dashboard\dashboard.html 看結果。" -f (Get-Date -Format "HH:mm:ss"))
+Write-Host ("=== {0} 全部完成。打開 outputs\v7\dashboard\research_dashboard_preview.html 看結果。" -f (Get-Date -Format "HH:mm:ss"))

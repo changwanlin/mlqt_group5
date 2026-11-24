@@ -1,4 +1,32 @@
+# 原有設定（data 與 outputs 照常版本控管，讓組員不用重跑也能看結果）
 data/raw/*.parquet
 data/processed/
 __pycache__/
 _v7_transfer/
+outputs/v7/pit_work/
+
+# Python 與編輯器的暫存檔
+*.py[cod]
+.venv/
+.venv-win/
+.ipynb_checkpoints/
+.idea/
+.vscode/
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+
+# 本機重跑與前瞻紙上交易的工作資料夾
+/reproductions/
+/paper_v7/
+
+# 帳號、金鑰等機密
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.json

@@ -4,8 +4,9 @@
 #   規則：每 63 個交易日重估（擴張視窗，自第一個可用交易日起）、至少 250 個有效報酬、常態準最大概似、a+b<1；
 #        V7 沒有封存期凍結 → 2025 年後照常重估；估計失敗時沿用上一季參數並記錄
 import warnings, numpy as np, pandas as pd                   # 載入：警告控制、數值運算、表格
-from common import CFG, PROC, TAB, VTAB                      # 載入：設定與路徑
+from common import CFG, PROC, ROOT, VTAB                     # 載入：設定與路徑
 from garch import fit, recurse                               # 載入：單次估計與固定參數遞迴（與既有 GARCH 共用同一套數學）
+from garch_open_returns import opening_returns, read_actions
 warnings.filterwarnings("ignore")                            # 關掉收斂提示
 BURN, EVERY = 250, 63                                        # V7：至少 250 個報酬；每 63 個交易日重估
 
@@ -28,9 +29,9 @@ def walk_oo(r, dates):                                       # 定義：單一�
 if __name__ == "__main__":
     panel = pd.read_parquet(PROC / "panel.parquet")          # 日資料（已還原）
     rows, logs = [], []                                      # 收集
-    for sid, g in panel[panel.sid.isin(CFG["universe"]["stocks"]) & panel.valid].sort_values(["sid", "date"]).groupby("sid"):  # 逐檔（只用有效交易日）
-        g = g.dropna(subset=["aopen"])                       # 需要還原開盤價
-        r = 100 * np.log(g.aopen / g.aopen.shift(1)).values[1:]; d = g.date.values[1:]  # 開盤到開盤報酬（%）
+    returns = opening_returns(panel[panel.sid.isin(CFG["universe"]["stocks"])], read_actions(ROOT))
+    for sid, g in returns.groupby("sid"):
+        r, d = g.r.to_numpy(), g.date.to_numpy()
         v1, v5, lg = walk_oo(r, pd.DatetimeIndex(d))         # 走勢前進
         rows.append(pd.DataFrame({"date": d, "sid": sid, "garch_oo1": v1, "garch_oo5": v5}))  # 一步預測與 5 日（t+2…t+6）平均
         logs += [{"sid": sid, **x} for x in lg]              # 估計紀錄
