@@ -11,7 +11,7 @@
 #       數學上比率不變，但電腦的小數會差到 1e-16 左右，這不是偷看未來）。
 # GARCH 另外檢查：①輸入的開盤到開盤報酬是否相同（應只差浮點誤差）②每次估計的參數差多少（最佳化對極小輸入差很敏感）。
 # 不比較標籤 y、label_end（標籤本來就是未來資料，只當答案用，不當輸入）。
-import shutil, subprocess, sys, json, numpy as np, pandas as pd  # 載入：複製檔案、執行子程式、系統、JSON、數值、表格
+import os, shutil, subprocess, sys, json, numpy as np, pandas as pd  # 載入：環境變數、複製檔案、執行子程式、系統、JSON、數值、表格
 from concurrent.futures import ThreadPoolExecutor            # 載入：同時跑幾個截止日
 from common import ROOT, CFG, VTAB                           # 載入：專案路徑與設定
 
@@ -42,7 +42,7 @@ def make_copy(cut):                                          # 定義：建立�
 def run_pipeline(cut):                                       # 定義：在副本裡從原始資料重跑到特徵
     d = make_copy(cut); log = []
     for s in STEPS:
-        r = subprocess.run([sys.executable, s], cwd=d / "src", capture_output=True, text=True)  # 在副本的 src 裡執行
+        r = subprocess.run([sys.executable, s], cwd=d / "src", capture_output=True, text=True, encoding="utf-8", errors="replace", env={**os.environ, "PYTHONUTF8": "1"})  # 在副本的 src 裡執行
         log.append(f"== {s}: exit {r.returncode}\n{r.stderr[-1500:]}")
         if r.returncode != 0: break                          # 某一步失敗就停
     (OUT / f"log_{cut}.txt").write_text("\n".join(log), encoding="utf-8")
@@ -52,7 +52,7 @@ def load_from(root):                                         # 定義：用副�
     code = ("import sys; sys.path.insert(0, 'src'); from models import load; import pandas as pd; "
             "d = load(); p = pd.read_parquet('data/processed/samples.parquet', columns=['date','sid','eligible']); "
             "d.to_parquet('loaded.parquet', index=False); p.to_parquet('eligible.parquet', index=False)")
-    subprocess.run([sys.executable, "-c", code], cwd=root, check=True)
+    subprocess.run([sys.executable, "-c", code], cwd=root, check=True, env={**os.environ, "PYTHONUTF8": "1"})
     return pd.read_parquet(root / "loaded.parquet"), pd.read_parquet(root / "eligible.parquet")
 
 def compare(full, trunc, cut, cols):                         # 定義：逐欄比較截止日以前的值

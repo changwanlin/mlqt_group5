@@ -36,4 +36,4 @@ for k, lst in frames.items():                                             # 逐�
     df.to_parquet(RAW / f"{k}.parquet", index=False)                      # 存成 Parquet
     print(k, df.shape)                                                    # 印出資料大小
 json.dump({"vendor": "FinMind", "downloaded_at": stamp, "start": START, "end": END, "ids": IDS},
-          open(RAW / "manifest.json", "w"), ensure_ascii=False, indent=2) # 寫下資料版本說明檔
+          open(RAW / "manifest.json", "w", encoding="utf-8"), ensure_ascii=False, indent=2) # 寫下資料版本說明檔

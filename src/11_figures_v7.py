@@ -93,7 +93,7 @@ fig.suptitle("股票曝險：預測波動高於目標 20.9% 時自動降低，�
 save(fig, "v7_fig7_exposure.png")
 
 # ---------- 圖 8：目標波動率的來源（策略 A 2017–2020 的 σ̂ₚ 分布） ----------
-ta = pd.read_csv(M2 / "target_strategyA_2017_2020.csv"); fr = json.load(open(M2 / "frozen_rules.json"))
+ta = pd.read_csv(M2 / "target_strategyA_2017_2020.csv"); fr = json.load(open(M2 / "frozen_rules.json", encoding="utf-8"))
 fig, ax = plt.subplots(figsize=(7, 3.4)); ax.hist(ta[~ta.exception].sigma_p, bins=30, color=LIGHT)
 for v, lab, col in ((fr["sigma_target"], "中位數 = 目標", BLUE), (fr["sens_targets"]["p25"], "P25", GREY), (fr["sens_targets"]["p75"], "P75", GREY)):
     ax.axvline(v, color=col, lw=1.5 if col == BLUE else 1, ls="-" if col == BLUE else ":"); ax.text(v, ax.get_ylim()[1] * 0.92, f" {lab}\n {v:.1%}", color=col, fontsize=8)

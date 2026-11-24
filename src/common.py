@@ -1,6 +1,11 @@
 # common.py — 各步驟共用的路徑、設定、字型與統計工具
 import pathlib, yaml, numpy as np                            # 載入：路徑、設定檔、數值運算
+import sys                                                   # 載入：系統（輸出編碼）
 import matplotlib; matplotlib.use("Agg")                     # 不開視窗，直接畫到檔案
+if sys.platform == "win32":                                  # Windows：畫面輸出改用 UTF-8，避免中文或符號（σ、≥、−）出現 UnicodeEncodeError
+    for _s in (sys.stdout, sys.stderr):
+        try: _s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception: pass
 from matplotlib import font_manager, rcParams                # 載入：字型管理
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]           # 專案根目錄

@@ -66,7 +66,7 @@ for sid, g in pr.groupby("股票"):
                        "tr": [bool(v) for v in g.可交易]}
 
 # ---------- 4. Model 2 的三個選擇 ----------
-fr = json.load(open(M2 / "frozen_rules.json"))               # 凍結規則
+fr = json.load(open(M2 / "frozen_rules.json", encoding="utf-8"))               # 凍結規則
 wc = pd.read_csv(M2 / "window_comparison.csv")               # 窗口比較
 D["window"] = [{"label": f"{int(r.L)} 日" + ("" if r.shrink else "（不收縮）"), "q": r4(r["三年平均"]), "sel": bool(r.L == fr["window"] and r.shrink)} for _, r in wc.sort_values("三年平均").iterrows()]
 al = pd.read_csv(M2 / "alpha_selection.csv")                 # α 選擇

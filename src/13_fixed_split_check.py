@@ -34,7 +34,7 @@ d = (navs["B：Model 1"].pct_change() - navs["A：HV20"].pct_change()).dropna() 
 from common import nw_mean_ci; mean, lo, hi, se = nw_mean_ci(d.values)  # HAC 平均與 95% 區間
 print(f"B − A 年化報酬差 {mean * 252:.2%}，95% 區間 [{lo * 252:.2%}, {hi * 252:.2%}]")
 print(R[["策略", "窗口", "Sharpe", "年化報酬", "年化波動", "最大回撤", "平均股票曝險", "年化換手率", "期末 NAV", "週數"]].round(4).to_string(index=False))
-json.dump({"window": L_SEL, "sigma_target": SIGMA_TARGET}, open(OUT / "fixed_split_rules.json", "w"), ensure_ascii=False)
+json.dump({"window": L_SEL, "sigma_target": SIGMA_TARGET}, open(OUT / "fixed_split_rules.json", "w", encoding="utf-8"), ensure_ascii=False)
 
 # ---------- Model 1 的 Test 評估（固定切分：訓練到 2023 年底、標籤也在 2023 內結束，評估 2024-01～2026-10） ----------
 from models import make_model as _mk                          # 載入：建立模型

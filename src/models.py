@@ -98,7 +98,7 @@ def git_commit():                                            # 定義：取得�
     except Exception: return "nogit"                         # 沒有 git 時
 
 def data_snapshot():                                         # 定義：取得資料版本（下載時間）
-    return json.load(open(ROOT/"data"/"raw"/"manifest.json"))["downloaded_at"]  # 讀 manifest
+    return json.load(open(ROOT/"data"/"raw"/"manifest.json", encoding="utf-8"))["downloaded_at"]  # 讀 manifest
 
 def log_runs(rows):                                          # 定義：把執行紀錄附加到 run_log.csv
     f = ROOT/"run_log.csv"                                   # 紀錄檔路徑

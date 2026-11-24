@@ -266,5 +266,5 @@ for lab, kw in [("目標＝A 第 25 百分位", dict(target=SENS_T["p25"])), ("�
             N, T, Wk = run(src, a, period=per, **kw); m = metrics(N, T, Wk); m.pop("_ex")
             sens.append({"設定": lab, "期間": per_name, "策略": s, "Sharpe": m["Sharpe"], "年化報酬": m["年化報酬"], "年化波動": m["年化波動"], "最大回撤": m["最大回撤"], "平均股票曝險": m["平均股票曝險"]})
 pd.DataFrame(sens).round(4).to_csv(OUT / "sensitivity.csv", index=False)
-json.dump({"window": L_SEL, "sigma_target": SIGMA_TARGET, "alpha": ALPHA, "sens_targets": SENS_T, "primary_model": SEL}, open(OUT / "frozen_rules.json", "w"), ensure_ascii=False, indent=2)
-print("凍結規則：", json.load(open(OUT / "frozen_rules.json")))
+json.dump({"window": L_SEL, "sigma_target": SIGMA_TARGET, "alpha": ALPHA, "sens_targets": SENS_T, "primary_model": SEL}, open(OUT / "frozen_rules.json", "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+print("凍結規則：", json.load(open(OUT / "frozen_rules.json", encoding="utf-8")))
