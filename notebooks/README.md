@@ -2,7 +2,6 @@
 
 | notebook | 對應範本 | 回答的問題 |
 |---|---|---|
-| `01_feasibility_analysis` | etfs/01 | 每個決策日有幾檔可交易？成本 vs 變動？波動有持續性嗎？fold 有沒有碰到封存期？ |
 | `02_labels` | etfs/02 | 標籤公式對嗎？窗口有效性四項斷言、分布、重疊與有效樣本、HV20 基準線 |
 | `03_financial_features` | etfs/03 | 時點契約、暖身稽核、扣掉封存期重建比對、尺度、離散度、冗餘、持續性 |
 | `04_model_based_features` | etfs/04（GARCH 一節） | 每檔 GARCH(1,1) walk-forward、封存凍結、刪資料不變性、增量 IC |

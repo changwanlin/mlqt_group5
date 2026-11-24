@@ -39,7 +39,7 @@ df = df[df.date >= start - pd.Timedelta(days=0)]             # 只留研究期�
 df.to_parquet(PROC/"samples.parquet", index=False)           # 存檔
 pd.Series(grid).to_csv(TAB/"decision_dates.csv", index=False, header=["decision_date"])  # 存決策日
 
-stk = df[~df.sid.isin(["0050", "00635U"])]                   # 只看 15 檔股票
+stk = df[df.sid != "0050"]                                   # 只看 15 檔股票（去掉 0050）
 cov = stk[stk.is_decision & stk.eligible].groupby("date").size()  # 每個決策日合格股票數
 cov.to_csv(TAB/"coverage_eligible_names.csv", header=["n_eligible"])  # 存覆蓋率
 print("features:", F20)                                      # 印出特徵名稱

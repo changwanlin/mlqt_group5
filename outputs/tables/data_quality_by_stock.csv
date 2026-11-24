@@ -1,6 +1,5 @@
 ﻿sid,first_date,n_days,missing_rows,invalid_rows,ohlc_violations,zero_volume_or_price,duplicates,jumps_gt_10.5pct,corporate_events
 0050,2015-06-01,2789,0,0,0,0,0,0,28
-00635U,2015-06-01,2789,0,0,0,0,0,1,0
 2303,2015-06-01,2789,0,1,0,1,0,0,17
 2330,2015-06-01,2789,0,0,0,0,0,0,39
 2337,2015-06-01,2789,9,9,0,0,0,0,11

@@ -12,7 +12,7 @@ except ImportError: pass                                     # 一般 Python 執
 
 NB_OUT = ROOT / "outputs" / "notebooks"; NB_OUT.mkdir(parents=True, exist_ok=True)  # notebook 輸出資料夾
 STK = CFG["universe"]["stocks"]                              # 15 檔股票代號
-GOLD, BM = CFG["universe"]["gold_etf"], CFG["universe"]["passive_benchmark"]  # 黃金 ETF、0050
+BM = CFG["universe"]["passive_benchmark"]                    # 0050
 HOLDOUT_START = pd.Timestamp(CFG["protocol"]["holdout"]["test"][0])  # 封存期起點 2025-01-01
 H = CFG["schedule"]["label_horizon_days"]                    # 標籤期間 5 日
 FOLDS = CFG["protocol"]["folds"]                             # 三個驗證 fold

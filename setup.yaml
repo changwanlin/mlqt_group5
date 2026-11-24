@@ -6,7 +6,6 @@ setup_version: v3                       # 版本號
 
 universe:                                # 可交易範圍
   stocks: ["2303","2330","2337","2340","2344","2371","2408","2434","2455","3016","3532","4919","5222","6770","8028"]  # 15 檔候選股票（目前名單，有事後選股限制）
-  gold_etf: "00635U"                     # 黃金期貨 ETF
   passive_benchmark: "0050"              # 被動基準（台灣50，含息）
   eligibility: "決策日 t 之前至少有 41 個有效交易日（20 日特徵 + 暖身）且 t 日有成交"  # 只用 t 日已知資訊判斷
 
@@ -53,7 +52,6 @@ models:
 portfolio:                               # 分數轉交易
   risk_tiers: {low: 0.70, mid: 0.50, high: 0.30}   # 股票總比例
   tier_thresholds: "訓練期『每決策日合格股票平均實現波動』的第 33、67 百分位數"
-  gold_weight: 0.20                      # 黃金固定 20%
   within_stock: ["equal", "inverse_vol"] # 股票部位內分配方式
   per_name_cap: 0.20                     # 每檔最多占股票部位 20%（全組合最多 14%）
   epsilon_vol: 0.05                      # 反波動率分母下限（年化 5%）
@@ -106,7 +104,6 @@ v3:
     within_stock: "inverse_vol"          # 第一層：反波動率權重
     per_name_cap: 0.20                   # 單檔 ≤ 股票資金 20%
     cap_overflow: "redistribute"         # 超過上限的部分依反波動率分給其他未達上限的股票；不足 5 檔放不滿時留現金
-    risk_tiers: {low: [0.70, 0.15], mid: [0.50, 0.20], high: [0.30, 0.20]}  # 股票、黃金（其餘現金）；書面提案 70/15/15、50/20/30、30/20/50
     tier_rules:                          # 第二層：兩種規則都在驗證期以「風險等級命中率」比較（不交易）
       ratio: {signal: "平均預測波動 ÷ 平均歷史 5 日波動", lo: 0.9, hi: 1.1}  # 書面提案 R_t
       level: {signal: "平均預測波動 vs 訓練期每決策日平均實現波動", lo_pct: 33, hi_pct: 67}  # 期中簡報
@@ -117,7 +114,7 @@ v3:
 # ===================== Model 2（V1 架構）：2026-11-18 寫定，回測前凍結 =====================
 #   只用 2021 校準年決定目標波動（src/07a_model2_calibrate.py），未看 2022–2024 驗證期的任何配置結果
 model2:
-  assets: "15 檔股票（當週可交易者）＋ 現金；不含黃金"   # 投資範圍
+  assets: "15 檔股票（當週可交易者）＋ 現金"   # 投資範圍
   risk_budget: {alpha: 0.0, rule: "b_i ∝ sigma_i^(-alpha)，加總 100%"}   # 主策略 α=0：每檔 1/n
   covariance: {form: "Sigma = D R D", D: "Model 1 預測 σ̂（年化）", returns: "open_to_open",
                corr_window: 60, corr_min_obs: 40, shrink: "ledoit_wolf_constant_correlation"}  # 60 日開盤到開盤報酬、收縮到平均相關

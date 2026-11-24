@@ -331,15 +331,13 @@ python src/03_features_labels.py # v1 的 15 項特徵（10/20/40 日）與開�
 python src/03b_features_v2.py    # v2 候選特徵 27 項（含每檔 GARCH 走勢前進估計、行事曆）
 python src/04_triage.py          # v1 特徵五道關卡（只用 2016-11～2021 訓練期）
 python src/05_validate.py        # 三個驗證年度 walk-forward、參數選擇、成對比較、SHAP（依 features.active 決定特徵組）
-python src/06_backtest_validation.py  # 驗證期回測、變體、成本掃描
 python src/06b_compare_versions.py    # （v2 時）v1 vs v2 比較
 python src/universe.py           # （v3）時點正確的可交易股票池（250 日均額 ≥ 3.5 億）與每週決策日
 python src/05_validate_v3.py     # （v3）115 個候選模型、QLIKE 選模、兩種風險等級規則比較（不交易）
-python src/06_backtest_v3.py     # （v3）驗證期回測——已寫好，尚未執行
-python src/07_holdout.py         # 封存測試：只能執行一次（outputs/HOLDOUT_USED.txt 存在時會拒絕執行；v1 已用過）
-python src/08_report.py          # v1 總表、六張圖、風險、預測區間、DSR
 python src/09_excel.py           # v1 表格彙整成 Excel
 ```
+
+含黃金（00635U）的舊版策略程式（v1／v3 的 strategies、bt、06_backtest、07_holdout、08_report 與 notebook 01）已移出專案，備份在 `_v7_transfer/legacy_gold/`（不會上傳 GitHub）；V7 只投資 15 檔股票＋現金。
 
 `notebooks/` 依課程範本（ETF case study 01–05）做資料與特徵檢查，見 `notebooks/README.md`。
 資料版本可查 `data/raw/manifest.json`。比較不同執行結果時，同時核對資料快照、程式版本及套件版本。

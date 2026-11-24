@@ -83,7 +83,6 @@ big_tab["explanation"] = ""                                  # 準備填說明
 for i, row in big_tab.iterrows():                            # 逐筆說明
     d0 = NOLIMIT.get(row.sid)                                # 這檔的上市首日
     if d0 is not None and 0 <= cal.get_loc(row.date) - cal.get_loc(d0) < 5: big_tab.at[i, "explanation"] = "新上市前 5 日無漲跌幅限制"
-    elif row.sid in ("00635U",): big_tab.at[i, "explanation"] = "追蹤國外指數 ETF 無漲跌幅限制"
 big_tab.to_csv(TAB/"unexplained_jumps.csv", index=False, encoding="utf-8-sig")  # 存檔供人工檢查
 qtab["jumps_gt_10.5pct"] = big.groupby("sid").size().reindex(qtab.index).fillna(0).astype(int)  # 每檔跳動筆數
 qtab["corporate_events"] = ev.groupby("sid").size().reindex(qtab.index).fillna(0).astype(int)  # 每檔公司行動數

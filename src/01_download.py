@@ -10,7 +10,7 @@ API = "https://api.finmindtrade.com/api/v4/data"                          # FinM
 parser = argparse.ArgumentParser()
 parser.add_argument("--end", type=dt.date.fromisoformat, default=dt.date(2026, 11, 12))
 START, END = CFG["data"]["start"], parser.parse_args().end.isoformat()
-IDS = CFG["universe"]["stocks"] + [CFG["universe"]["gold_etf"], CFG["universe"]["passive_benchmark"]]  # 要下載的代號清單
+IDS = CFG["universe"]["stocks"] + [CFG["universe"]["passive_benchmark"]]  # 要下載的代號清單：15 檔股票＋ 0050（不含黃金）
 
 def get(dataset, sid, start=START):                                       # 定義：下載單一資料集、單一代號
     q = urllib.parse.urlencode({"dataset": dataset, "data_id": sid, "start_date": start, "end_date": END})  # 組合查詢參數
