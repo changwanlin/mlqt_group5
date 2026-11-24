@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>V7 波動配置儀表板</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55,6 +56,7 @@ h3 { font-size: 15px; color: var(--ink); margin: 0; }
 .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--text2); }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .sw { width: 18px; height: 3px; border-radius: 2px; display: inline-block; }
+.sw.gap { height: 10px; background: repeating-linear-gradient(135deg, var(--muted) 0 1px, transparent 1px 4px); opacity: .7; }
 .sw.dash { background: repeating-linear-gradient(90deg, var(--ref) 0 5px, transparent 5px 8px) !important; }
 .chart { position: relative; width: 100%; }
 .chart svg { display: block; width: 100%; overflow: visible; }
@@ -91,6 +93,7 @@ footer { font-size: 12px; color: var(--muted); }
 @media (prefers-reduced-motion: no-preference) { .panel, .kpi { transition: border-color .2s; } }
 </style>
 
+<noscript><p style="padding:16px;font-size:16px">這個儀表板需要 JavaScript 才能顯示圖表。請用 Chrome、Safari 或 Edge 打開 dashboard.html；Finder 的「快速查看」（空白鍵預覽）和 GitHub 網頁都不會執行 JavaScript。</p></noscript>
 <div class="wrap">
   <header class="top">
     <div>
@@ -123,8 +126,9 @@ footer { font-size: 12px; color: var(--muted); }
   <div class="section-title"><span class="tag">MODEL 1</span><h2>波動率預測</h2></div>
   <div class="panel">
     <div class="ctrl"><label for="sel-sid">股票</label><select id="sel-sid"></select>
-      <div class="legend"><span><i class="sw" style="background:var(--b)"></i>Lasso 預測</span><span><i class="sw" style="background:var(--band);height:10px"></i>90% 預測區間</span><span><i class="sw" style="background:var(--a)"></i>HV20</span><span><i class="dotb" style="background:var(--ink)"></i>實際（未來 5 日）</span></div></div>
+      <div class="legend"><span><i class="sw" style="background:var(--b)"></i>Lasso 預測</span><span><i class="sw" style="background:var(--band);height:10px"></i>90% 預測區間</span><span><i class="sw" style="background:var(--a)"></i>HV20</span><span><i class="dotb" style="background:var(--ink)"></i>實際（未來 5 日）</span><span><i class="sw gap"></i>不可交易（空白）</span></div></div>
     <div class="chart" id="ch-pred"></div>
+    <p class="note"><b>為什麼有空白？</b>空白（灰色斜線）的週，代表這檔股票當週不在「可交易名單」：V7 規定過去 250 個交易日平均每天成交金額要 ≥ 3.5 億元、而且有效交易日 ≥ 200 天才能交易。不可交易的週不會放進投資組合，也不計入評分，所以這裡不畫預測線。把滑鼠移到空白處，可以看到當週的成交金額。</p>
     <div class="stats" id="pred-stats"></div>
   </div>
   <div class="grid2">
@@ -191,6 +195,18 @@ function lineChart(el, cfg) {
     g += `<line x1="${X(t)}" x2="${X(t)}" y1="${H - m.b}" y2="${H - m.b + 4}" stroke="${css("--muted")}"/><text x="${X(t)}" y="${H - 8}" text-anchor="middle">${mo ? y + "-07" : y}</text>`;
   }
   if (cfg.shadeFrom) { const t = Date.parse(cfg.shadeFrom); if (t < xs[xs.length - 1]) g += `<rect x="${X(t)}" y="${m.t}" width="${W - m.r - X(t)}" height="${H - m.t - m.b}" fill="${css("--chip")}" opacity=".55"/><text x="${X(t) + 6}" y="${m.t + 12}">${cfg.shadeLabel}</text>`; }  // 事後評估區塊
+  if (cfg.gaps) {                                             // 不可交易的週：灰色斜線區塊＋文字
+    g += `<defs><pattern id="gp" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="${css("--muted")}" stroke-width="1" opacity=".45"/></pattern></defs>`;
+    const edge = i => i <= 0 ? X(xs[0]) : i >= xs.length ? X(xs[xs.length - 1]) : (X(xs[i - 1]) + X(xs[i])) / 2;  // 區塊邊界取相鄰兩週的中點
+    for (let i = 0; i < xs.length; i++) {
+      if (!cfg.gaps.flags[i]) continue;
+      let j = i; while (j + 1 < xs.length && cfg.gaps.flags[j + 1]) j++;  // 找出連續不可交易的一段
+      const x0 = edge(i), x1 = edge(j + 1), w = Math.max(2, x1 - x0);
+      g += `<rect x="${x0}" y="${m.t}" width="${w}" height="${H - m.t - m.b}" fill="url(#gp)"/>`;
+      if (w > 46) g += `<text x="${x0 + w / 2}" y="${H - m.b - 8}" text-anchor="middle">不可交易</text>`;  // 夠寬才寫字
+      i = j;
+    }
+  }
   if (cfg.refY != null) g += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(cfg.refY)}" y2="${Y(cfg.refY)}" stroke="${css("--muted")}" stroke-width="1"/>`;  // 參考線（如淨值 = 1）
   if (cfg.band) {                                             // 預測區間：逐段畫填色多邊形（遇空值斷開）
     let seg = [];
@@ -220,7 +236,8 @@ function lineChart(el, cfg) {
     let html = `<div class="d">${cfg.x[i]}</div>`;
     cfg.series.forEach((s, k) => { const v = s.values[i]; hp[k].setAttribute("visibility", v == null ? "hidden" : "visible"); if (v != null) { hp[k].setAttribute("cx", x); hp[k].setAttribute("cy", Y(v)); } html += `<div><span style="color:${s.color}">●</span> ${s.name}：${v == null ? "—" : cfg.yFmt(v, true)}</div>`; });
     if (cfg.band && cfg.band.lo[i] != null) html += `<div>90% 區間：${cfg.yFmt(cfg.band.lo[i], true)} ～ ${cfg.yFmt(cfg.band.hi[i], true)}</div>`;
-    if (cfg.dots) html += `<div>實際：${cfg.dots.values[i] == null ? "尚無" : cfg.yFmt(cfg.dots.values[i], true)}</div>`;
+    if (cfg.gaps && cfg.gaps.flags[i]) html = `<div class="d">${cfg.x[i]}</div><div>本週不可交易，未進入投資組合</div><div style="color:var(--muted)">${cfg.gaps.why(i)}</div>`;  // 空白週只顯示原因
+    if (cfg.dots && !(cfg.gaps && cfg.gaps.flags[i])) html += `<div>實際：${cfg.dots.values[i] == null ? "尚無" : cfg.yFmt(cfg.dots.values[i], true)}</div>`;
     tip.innerHTML = html; tip.hidden = false;
     const left = x * r.width / W, w = tip.offsetWidth;        // 提示框放在游標旁，靠右邊時改放左邊
     tip.style.left = (left + 14 + w > r.width ? left - w - 14 : left + 14) + "px"; tip.style.top = "6px";
@@ -292,14 +309,22 @@ function renderPeriod() {
 function renderPred() {
   const sid = $("sel-sid").value, d = D.preds[sid];           // 選到的股票
   const tr = (a) => a.map((v, i) => d.tr[i] ? v : null);      // 只畫「可交易」的週（不可交易時沒有進入配置）
+  const why = i => {                                          // 說明這週為何不可交易
+    const r = [];
+    if (d.adv[i] != null && d.adv[i] < 3.5) r.push(`250 日平均成交 ${d.adv[i].toFixed(2)} 億元，低於 3.5 億`);
+    if (d.nv[i] != null && d.nv[i] < 200) r.push(`有效交易日 ${d.nv[i]} 天，少於 200 天`);
+    return r.length ? r.join("；") : "尚未上市滿一年或資料不足";
+  };
   lineChart($("ch-pred"), { label: `${sid} 預測與實際波動`, x: d.x, height: 280, yMin: 0, yFmt: (v, t) => pct(v, 0), shadeFrom: "2025-01-01", shadeLabel: "事後評估",
+    gaps: { flags: d.tr.map(t => !t), why },
     band: { lo: tr(d.lo), hi: tr(d.hi) }, dots: { values: tr(d.y) },
     series: [{ name: "HV20", values: tr(d.hv), color: css("--a"), width: 1.3 }, { name: "Lasso", values: tr(d.ml), color: css("--b"), width: 2 }] });
   const idx = d.x.map((_, i) => i).filter(i => d.tr[i] && d.y[i] != null && d.ml[i] != null);  // 有實際值的可交易週
   const q = (p, y) => { const x = (y / p) ** 2; return x - Math.log(x) - 1; };  // QLIKE
   const mean = a => a.reduce((s, v) => s + v, 0) / (a.length || 1);
   const cov = mean(idx.map(i => d.y[i] >= d.lo[i] && d.y[i] <= d.hi[i] ? 1 : 0));
-  $("pred-stats").innerHTML = idx.length ? `可交易且已有實際值的週：<b>${idx.length}</b>　落在 90% 區間：<b>${pct(cov, 0)}</b>　QLIKE：Lasso <b>${mean(idx.map(i => q(d.ml[i], d.y[i]))).toFixed(3)}</b>、HV20 <b>${mean(idx.map(i => q(d.hv[i], d.y[i]))).toFixed(3)}</b>（含 2021 與事後評估期，與正式評分範圍不同）`
+  const nGap = d.tr.filter(t => !t).length;                   // 不可交易的週數
+  $("pred-stats").innerHTML = idx.length ? `不可交易：<b>${nGap}</b> / ${d.tr.length} 週　可交易且已有實際值的週：<b>${idx.length}</b>　落在 90% 區間：<b>${pct(cov, 0)}</b>　QLIKE：Lasso <b>${mean(idx.map(i => q(d.ml[i], d.y[i]))).toFixed(3)}</b>、HV20 <b>${mean(idx.map(i => q(d.hv[i], d.y[i]))).toFixed(3)}</b>（含 2021 與事後評估期，與正式評分範圍不同）`
     : "這檔股票在預測期間沒有進入可交易名單。";
 }
 

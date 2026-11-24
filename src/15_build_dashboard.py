@@ -1,7 +1,7 @@
 # 15_build_dashboard.py — 把 V7 的最後結果做成「互動式儀表板」（一個 HTML 檔，資料直接內嵌，雙擊就能用瀏覽器打開）
 #   讀：outputs/v7/tables/ 底下的結果表（05、07、10、12、14 產生）
 #   寫：outputs/v7/dashboard/dashboard.html（本機用，完整 HTML）
-#       outputs/v7/dashboard/dashboard_body.html（只有內容，給 claude.ai 發布用；平台會自己包上 <html>）
+#       outputs/v7/dashboard/_publish/dashboard_body.html（只有內容，給 claude.ai 發布用；平台會自己包上 <html>）
 #   版面與互動程式在 src/dashboard_template.html；這支程式只負責「整理資料、塞進樣板」
 import json, numpy as np, pandas as pd                       # 載入：JSON、數值、表格
 from common import PROC, VTAB, ROOT, nw_mean_ci               # 載入：路徑與 HAC 平均值工具
@@ -58,12 +58,17 @@ D["m1"] = [{"model": v, "y2022": r4(t.loc[k, "fold1"]), "y2023": r4(t.loc[k, "fo
 cv = pd.read_csv(VTAB / "model1_conformal.csv")              # 預測區間涵蓋率
 D["coverage"] = [{"p": p, "cov": r4(c)} for p, c in zip(["2022", "2023", "2024", "2025–26"], cv.coverage)]
 pr = pd.read_csv(VTAB / "volatility_predictions_weekly.csv", dtype={"股票": str})  # 14 產生的每週預測
+uv = pd.read_parquet(PROC / "universe_v3.parquet")[["date", "sid", "adv250", "n_valid250"]].rename(columns={"sid": "股票"})  # universe.py 算出的門檻數字：250 日平均成交金額、有效交易日數
+uv["決策日"] = uv.date.dt.strftime("%Y-%m-%d")
+pr = pr.merge(uv[["決策日", "股票", "adv250", "n_valid250"]], on=["決策日", "股票"], how="left")  # 每週每檔附上門檻數字
 D["preds"] = {}                                              # 每檔一組陣列
 for sid, g in pr.groupby("股票"):
     g = g.sort_values("決策日")
     D["preds"][sid] = {"x": list(g.決策日), "ml": [r4(v) for v in g["預測波動_Lasso"]], "lo": [r4(v) for v in g["區間下限_90%"]],
                        "hi": [r4(v) for v in g["區間上限_90%"]], "hv": [r4(v) for v in g.HV20], "y": [r4(v) for v in g["實際波動_未來5日"]],
-                       "tr": [bool(v) for v in g.可交易]}
+                       "tr": [bool(v) for v in g.可交易],
+                       "adv": [r4(v / 1e8) if v == v else None for v in g.adv250],  # 250 日平均成交金額（億元），用來說明為何不可交易
+                       "nv": [int(v) if v == v else None for v in g.n_valid250]}  # 250 日內有效交易日數
 
 # ---------- 4. Model 2 的三個選擇 ----------
 fr = json.load(open(M2 / "frozen_rules.json", encoding="utf-8"))               # 凍結規則
@@ -95,7 +100,8 @@ D["asof"] = str(pr.決策日.max())                              # 資料截止�
 # ---------- 6. 塞進樣板、寫檔 ----------
 body = (ROOT / "src" / "dashboard_template.html").read_text(encoding="utf-8")  # 讀樣板
 body = body.replace("/*__DATA__*/null", json.dumps(D, ensure_ascii=False, separators=(",", ":")))  # 資料放進去
-(OUT / "dashboard_body.html").write_text(body, encoding="utf-8")  # 發布用（只有內容）
+PUB = OUT / "_publish"; PUB.mkdir(exist_ok=True)              # 發布到 claude.ai 用的版本放在子資料夾，避免被誤開
+(PUB / "dashboard_body.html").write_text(body, encoding="utf-8")  # 發布用（只有內容；平台會自己包上 <html>）
 full = ("<!doctype html>\n<html lang=\"zh-Hant\">\n<head>\n<meta charset=\"utf-8\">\n"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, viewport-fit=cover\">\n</head>\n<body>\n" + body + "\n</body>\n</html>\n")
 (OUT / "dashboard.html").write_text(full, encoding="utf-8")  # 本機用（雙擊開啟）
